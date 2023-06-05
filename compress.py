@@ -17,13 +17,12 @@ parser.add_argument('infile', type=argparse.FileType("rb"),
 
 args = parser.parse_args()
 
-text = args.infile.read()
-
 count = {}
 # count = []
 unique_chars = 0
 
-for char in text:
+while (char := args.infile.read(1)):
+    # print(type(char))
     if char in count:
         count[char] += 1
     else:
@@ -48,7 +47,7 @@ class tree_node:
 q = queue.PriorityQueue()
         
 for pair in sorted_raw:
-    print(pair[1], pair[0])
+    # print(pair[1], pair[0])
     q.put(tree_node(pair[1], None, None, pair[0]))
 
 
@@ -74,13 +73,13 @@ def trav(node, path):
     if (node.data != None):
         symbols[node.data] = path
         return
-    trav(node.left, path << 1)
-    trav(node.right, (path << 1) + 1)
+    trav(node.left, path + "0")
+    trav(node.right, path + "1")
 
-trav(root, 0)
+trav(root, "")
 print("SYMBOLS:", symbols)
 for (i,v) in symbols.items():
-    print(f"{i}: {v:b}")
+    print(f"{i}: {v}")
 dcode = {b:a for (a,b) in symbols.items()}
 print("DECODE:", dcode)
 # TODO: canonical coding
@@ -102,10 +101,10 @@ class writeable_byte:
 
     def append(self, bits, num_digits_of_bits):
         # bits is a binary number
-        self.value = self.value | (bits << (self.remaining_digits - num_digits_of_bits))
+        self.value = self.value + (bits << (self.remaining_digits - num_digits_of_bits))
         self.remaining_digits -= num_digits_of_bits
 
-        print(f"[!] current write: {self.value:b} | bits left: {self.remaining_digits}")
+        # print(f"[!] current write: {self.value:b} | bits left: {self.remaining_digits}")
 
 with open("out.txt", "ab") as binary_file:
     # Write bytes to file
@@ -114,34 +113,59 @@ with open("out.txt", "ab") as binary_file:
     # this is not encoded correctly: TODO: FIX
     write_buffer = []
     current_byte = writeable_byte()
-    for byte in text:
+
+    args.infile.seek(0)
+    while (byte := args.infile.read(1)):
         symbol = symbols[byte]
-        if symbol == 0:
-            symbol_size = 1
-        else:
-            symbol_size = math.floor(math.log(symbol, 2)) + 1
 
         # lets see how many bytes this will use
         # number_of_bytes_required = (symbol_size//8) + 1
 
-        print(f"DEBUG: {symbol:b} [{symbol_size}]")
-        for bit_number in range(symbol_size, 0, -1):
+        # print(f"DEBUG: {symbol} [{symbol_size}]")
+        for bit in symbol:
+            # bit is a string with 1 or 0
             # write each bit individually
-            this_bit = (symbol >> (bit_number-1)) % 2
-            current_byte.append(this_bit, 1)
+            current_byte.append(int(bit, 2), 1)
 
             if current_byte.remaining_digits == 0:
-                write_buffer.append(current_byte)
+                # write_buffer.append(current_byte)
+                binary_file.write(current_byte.value.to_bytes())
                 current_byte = writeable_byte()
 
-        # current_byte += (symbol_size <<
+        # while len(write_buffer) > 0:
+        #     # print(f"{write_buffer.pop().value.to_bytes()}")
+        #     val = write_buffer.pop().value
+        #     to_write = val.to_bytes()
+        #     print("WRITING", to_write, f"TO FILE | ORIG: {val:08b}")
+        #     binary_file.write(to_write)
 
-        while len(write_buffer) > 0:
-            # print(f"{write_buffer.pop().value.to_bytes()}")
-            binary_file.write(write_buffer.pop().value.to_bytes())
+print("[!] Finished Compression")
 
-with open("out.txt", "rb") as binary_file:
-    while (by := binary_file.read(1)):
-        val = int.from_bytes(by)
-        for bit in range(8,0,-1):
-            print((val >> (bit-1)) % 2)
+with open("decompressed.txt", "ab") as out_file:
+    with open("out.txt", "rb") as binary_file:
+        current_string = ""
+        while (by := binary_file.read(1)):
+            val = int.from_bytes(by)
+            for bit in range(8,0,-1):
+                if ((val >> (bit-1)) % 2) == 1:
+                    current_string += "1"
+                else:
+                    current_string += "0"
+
+                if current_string in dcode:
+                    real = dcode[current_string]
+                    out_file.write(real)
+
+                    current_string = ""
+
+print("[!] Finished Decompression!")
+
+
+
+
+
+
+
+
+# will this get deleted?
+
