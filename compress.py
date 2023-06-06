@@ -9,7 +9,6 @@ parser = argparse.ArgumentParser(
                     description='Compress files losslessly with Huffman encoding.',
                     epilog='Created by Stanley Wang (stanleymw).')
 
-parser.add_argument
 parser.add_argument('infile', type=argparse.FileType("rb"),
                     help='File to be compressed.')
 
@@ -77,11 +76,16 @@ def trav(node, path):
     trav(node.right, path + "1")
 
 trav(root, "")
+
 print("SYMBOLS:", symbols)
+
 for (i,v) in symbols.items():
     print(f"{i}: {v}")
+
 dcode = {b:a for (a,b) in symbols.items()}
+
 print("DECODE:", dcode)
+
 # TODO: canonical coding
 # symbols = sorted(symbols, key = lambda item: len(item[1]))
 # print(symbols)
@@ -104,13 +108,9 @@ class writeable_byte:
         self.value = self.value + (bits << (self.remaining_digits - num_digits_of_bits))
         self.remaining_digits -= num_digits_of_bits
 
-        # print(f"[!] current write: {self.value:b} | bits left: {self.remaining_digits}")
 
 with open("out.txt", "ab") as binary_file:
     # Write bytes to file
-    # binary_file.write(struct.pack('c', int(bits, 2)))
-
-    # this is not encoded correctly: TODO: FIX
     write_buffer = []
     current_byte = writeable_byte()
 
@@ -118,26 +118,15 @@ with open("out.txt", "ab") as binary_file:
     while (byte := args.infile.read(1)):
         symbol = symbols[byte]
 
-        # lets see how many bytes this will use
-        # number_of_bytes_required = (symbol_size//8) + 1
-
-        # print(f"DEBUG: {symbol} [{symbol_size}]")
         for bit in symbol:
             # bit is a string with 1 or 0
             # write each bit individually
             current_byte.append(int(bit, 2), 1)
 
             if current_byte.remaining_digits == 0:
-                # write_buffer.append(current_byte)
+                # We finished building this byte, so lets write it to the file
                 binary_file.write(current_byte.value.to_bytes())
                 current_byte = writeable_byte()
-
-        # while len(write_buffer) > 0:
-        #     # print(f"{write_buffer.pop().value.to_bytes()}")
-        #     val = write_buffer.pop().value
-        #     to_write = val.to_bytes()
-        #     print("WRITING", to_write, f"TO FILE | ORIG: {val:08b}")
-        #     binary_file.write(to_write)
 
 print("[!] Finished Compression")
 
@@ -147,6 +136,7 @@ with open("decompressed.txt", "ab") as out_file:
         while (by := binary_file.read(1)):
             val = int.from_bytes(by)
             for bit in range(8,0,-1):
+                # read each bit individually
                 if ((val >> (bit-1)) % 2) == 1:
                     current_string += "1"
                 else:
