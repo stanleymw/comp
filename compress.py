@@ -77,14 +77,8 @@ def trav(node, path):
 
 trav(root, "")
 
-print("SYMBOLS:", symbols)
-
-for (i,v) in symbols.items():
-    print(f"{i}: {v}")
 
 dcode = {b:a for (a,b) in symbols.items()}
-
-print("DECODE:", dcode)
 
 # TODO: canonical coding
 # symbols = sorted(symbols, key = lambda item: len(item[1]))
@@ -132,21 +126,19 @@ print("[!] Finished Compression")
 
 with open("decompressed.txt", "ab") as out_file:
     with open("out.txt", "rb") as binary_file:
-        current_string = ""
+        ptr = root
         while (by := binary_file.read(1)):
             val = int.from_bytes(by)
             for bit in range(8,0,-1):
                 # read each bit individually
                 if ((val >> (bit-1)) % 2) == 1:
-                    current_string += "1"
+                    ptr = ptr.right
                 else:
-                    current_string += "0"
+                    ptr = ptr.left
 
-                if current_string in dcode:
-                    real = dcode[current_string]
-                    out_file.write(real)
-
-                    current_string = ""
+                if ptr.data != None:
+                    out_file.write(ptr.data)
+                    ptr = root
 
 print("[!] Finished Decompression!")
 
