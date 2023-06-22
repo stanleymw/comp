@@ -159,6 +159,8 @@ if args.compress:
                     # We finished building this byte, so lets write it to the file
                     binary_file.write(current_byte.value.to_bytes())
                     current_byte = writeable_byte()
+
+        binary_file.write(current_byte.value.to_bytes())
     
     print("[!] Finished Compression")
 
