@@ -4,6 +4,18 @@ import struct
 import queue
 import math
 
+# Future:
+'''
+
+This project is a really rough proof of concept.
+It uses static 1 byte symbols, so there is a hardcoded 256 byte header used to denote canonical code lengths.
+
+In the future, I plan to incorporate multiple tree encodings and dynamic symbols (for hopefully better compression ratio).
+But as for now, I am done with this project.
+
+'''
+
+
 parser = argparse.ArgumentParser(
                     prog='comp',
                     description='Compress files losslessly with Huffman encoding.',
