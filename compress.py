@@ -68,9 +68,9 @@ if args.compress:
         q.put(tree_node(smallest_one.value + smallest_two.value, smallest_one, smallest_two, None))
 
     root = q.get()
-    print("TREE GENERATED")
+    # print("TREE GENERATED")
 
-    print("ROOT NODE:", root)
+    # print("ROOT NODE:", root)
 
     symbols = {}
 
@@ -87,7 +87,6 @@ if args.compress:
 # print(symbols)
     dcode = {b:a for (a,b) in symbols.items()}
 
-# TODO: canonical coding
     symbols = sorted(symbols.items(), key = lambda item : (item[1], item[0]))
     canonical_symbols = {}
     # print(symbols)
@@ -102,7 +101,7 @@ if args.compress:
 
         current_code = (current_code + 1) << (symbols[i+1][1] - symbols[i][1])
 
-    print(canonical_symbols)
+    # print(canonical_symbols)
 
 # WRITE THE HEADER
 # 256 symbols
@@ -206,7 +205,7 @@ if args.decompress:
             ptr = root
             def trav(ptr, v):
                 if ptr.data != None:
-                    print(ptr.data, v)
+                    # print(ptr.data, v)
                     return
                 trav(ptr.left, v + "0")
                 trav(ptr.right, v + "1")
