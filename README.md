@@ -8,11 +8,11 @@ Written by Stanley Wang
 To compress a file:
 
 ```
-python compress.py -c <uncompressed input file> <compressed output file>
+python comp.py -c <uncompressed input file> <compressed output file>
 ```
 
 To decompress a file:
 
 ```
-python compress.py -d <compressed file> <uncompressed output file>
+python comp.py -d <compressed file> <uncompressed output file>
 ```
