@@ -11,8 +11,6 @@ This project is a really rough proof of concept.
 It uses static 1 byte symbols, so there is a hardcoded 256 byte header used to denote canonical code lengths.
 
 In the future, I plan to incorporate multiple tree encodings and dynamic symbols (for hopefully better compression ratio).
-But as for now, I am done with this project.
-
 '''
 
 
@@ -31,16 +29,37 @@ parser.add_argument('infile', type=argparse.FileType("rb"),
 parser.add_argument('outfile', type=argparse.FileType("ab"),
                     help="Output of compression/decompression.")
 
+parser.add_argument(
+            '-s', '--symbol-size', type=int, default=1,
+            help='The size (in bytes) of the symbols used to encode the huffman tree.')
+
 # parser.add_argument('outfile', type)
 
 args = parser.parse_args()
 
+
+'''
+Compressed File Format Documentation:
+[byte 1-4] magic byte
+[byte 5] 1 byte integer representing symbol size
+[byte 6 -> 6 + symbol_size] number of unique symbols
+[symbol, symbol code length]
+[remaining bytes] compressed data
+
+
+'''
+
+def debug_notify(a):
+    print("[!]", a)
+
+print(args.symbol_size)
 if args.compress:
     count = {}
     unique_chars = 0
 
     # Count symbol occurences
-    while (char := args.infile.read(1)):
+    while (char := args.infile.read(args.symbol_size)):
+
         if char in count:
             count[char] += 1
         else:
@@ -124,27 +143,53 @@ if args.compress:
 
 
     with args.outfile as binary_file:
+        # write magic bytes
+        binary_file.write(bytes("COMP", "utf-8"))
+
+        # write symbol size
+        binary_file.write(args.symbol_size.to_bytes())
+
+        # write number of symbols
+        binary_file.write(len(canonical_symbols).to_bytes(length=(2**args.symbol_size)))
+
+        # total number of uncompressed bits to write 
+        total_bits = 0
+        for char in count:
+            total_bits += count[char] * len(canonical_symbols[char])
+        debug_notify(total_bits)
+
         # Write header to file
-        for i in range(2**8):
-            sym = i.to_bytes()
-            if sym in canonical_symbols:
-                binary_file.write(len(canonical_symbols[sym]).to_bytes())
-            else:
-                binary_file.write(bytes(1))
+        
+        print(canonical_symbols)
+
+
+        # for i in range(2**(args.symbol_size*8)):
+        #     sym = i.to_bytes(length=args.symbol_size)
+        #     if sym in canonical_symbols:
+        #         binary_file.write(len(canonical_symbols[sym]).to_bytes())
+        #     else:
+        #         binary_file.write(bytes(args.symbol_size))
+        for symbol, code in canonical_symbols.items():
+            # we know the symbol is a max size of symbol_size
+            # the max number of bits that is used to represent the symbol has to be symbol size
+            print(symbol, code)
+            binary_file.write(int.from_bytes(symbol).to_bytes(length=args.symbol_size)) 
+            binary_file.write(len(code).to_bytes(length=args.symbol_size))
 
         # Write encoded data to file
         write_buffer = []
         current_byte = writeable_byte()
-
+        
+        total_bits_real = 0
         args.infile.seek(0)
-        while (byte := args.infile.read(1)):
+        while (byte := args.infile.read(args.symbol_size)):
             symbol = canonical_symbols[byte]
 
             for bit in symbol:
                 # bit is a string with 1 or 0
                 # write each bit individually
                 current_byte.append(int(bit, 2), 1)
-
+                total_bits_real += 1
                 if current_byte.remaining_digits == 0:
                     # We finished building this byte, so lets write it to the file
                     binary_file.write(current_byte.value.to_bytes())
@@ -152,23 +197,38 @@ if args.compress:
 
         binary_file.write(current_byte.value.to_bytes())
     
-    print("[!] Finished Compression")
+    debug_notify("Finished Compression")
+    debug_notify("Predicted bits written: " + str(total_bits) +  " | Real bits written " + str(total_bits_real))
 
 if args.decompress:
     with args.outfile as out_file:
         with args.infile as binary_file:
+            header = binary_file.read(4)
+            if (header != bytes("COMP", "utf-8")):
+                raise Exception(args.infile.name + " is not a comp compressed file!")
+            
+            symbol_size = int.from_bytes(binary_file.read(1))
+            debug_notify("Detected symbol size: " + str(symbol_size))
+            num_symbols = int.from_bytes(binary_file.read(symbol_size))
+            debug_notify("Detected number of symbols: " + str(num_symbols))
+
             # first read the header
             reconstructed = {}
 
-            for i in range(2**8):
-                num = binary_file.read(1)
-                val = int.from_bytes(num)
-                if val != 0:
-                    reconstructed[i.to_bytes()] = val
+            # for i in range(2**8):
+            #     num = binary_file.read(1)
+            #     val = int.from_bytes(num)
+            #     if val != 0:
+            #         reconstructed[i.to_bytes()] = val
+            for i in range(num_symbols):
+                sym = binary_file.read(symbol_size).lstrip(bytes(1))
+                sym_code_len = int.from_bytes(binary_file.read(symbol_size))
+                reconstructed[sym] = sym_code_len
 
             reconstructed = sorted(reconstructed.items(), key = lambda item : (item[1], item[0]))
             canonical_symbols = {}
             current_code = 0
+            debug_notify(reconstructed)
             for i in range(len(reconstructed)):
                 # i = ith symbol
                 canonical_symbols[reconstructed[i][0]] = f"{current_code:b}".rjust(reconstructed[i][1], "0")
@@ -185,7 +245,7 @@ if args.decompress:
                     self.data = data
 
             root = tree_node()
-
+            debug_notify(canonical_symbols)
             for code in canonical_symbols.items():
                 symbol = code[0]
                 ptr = root
@@ -229,7 +289,7 @@ if args.decompress:
 
 
 
-    print("[!] Finished Decompression!")
+    debug_notify("Finished Decompression!")
 
 
 
