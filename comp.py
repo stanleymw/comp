@@ -39,8 +39,8 @@ if args.compress:
     count = {}
     unique_chars = 0
 
+    # Count symbol occurences
     while (char := args.infile.read(1)):
-        # print(type(char))
         if char in count:
             count[char] += 1
         else:
@@ -64,10 +64,9 @@ if args.compress:
 
     q = queue.PriorityQueue()
             
+    # Generate Huffman tree
     for pair in sorted_raw:
-        # print(pair[1], pair[0])
         q.put(tree_node(pair[1], None, None, pair[0]))
-
 
     def smaller(a,b):
         if a < b:
@@ -79,15 +78,13 @@ if args.compress:
 
         q.put(tree_node(smallest_one.value + smallest_two.value, smallest_one, smallest_two, None))
 
+    # Huffman tree generated
     root = q.get()
-    # print("TREE GENERATED")
-
-    # print("ROOT NODE:", root)
 
     symbols = {}
 
     def trav(node, path):
-        # path is an integer representation of a byte
+        # Path is path length (Encoding length in bits)
         if (node.data != None):
             symbols[node.data] = path
             return
@@ -96,13 +93,8 @@ if args.compress:
 
     trav(root, 0)
 
-# print(symbols)
-    dcode = {b:a for (a,b) in symbols.items()}
-
     symbols = sorted(symbols.items(), key = lambda item : (item[1], item[0]))
     canonical_symbols = {}
-    # print(symbols)
-    # print("modify..")
     current_code = 0
     for i in range(len(symbols)):
         # i = ith symbol
@@ -113,11 +105,10 @@ if args.compress:
 
         current_code = (current_code + 1) << (symbols[i+1][1] - symbols[i][1])
 
-    # print(canonical_symbols)
 
-# WRITE THE HEADER
-# 256 symbols
-# 1 byte for each
+    # WRITE THE HEADER
+    # 256 symbols
+    # 1 byte for each
 
 
 
@@ -133,7 +124,7 @@ if args.compress:
 
 
     with args.outfile as binary_file:
-        # WRITE HEADER TO FILE
+        # Write header to file
         for i in range(2**8):
             sym = i.to_bytes()
             if sym in canonical_symbols:
@@ -141,8 +132,7 @@ if args.compress:
             else:
                 binary_file.write(bytes(1))
 
-
-        # Write bytes to file
+        # Write encoded data to file
         write_buffer = []
         current_byte = writeable_byte()
 
@@ -200,9 +190,7 @@ if args.decompress:
                 symbol = code[0]
                 ptr = root
                 st = code[1]
-                # print(symbol, st)
                 for ch in st:
-                    # print(ch)
                     if ch == "0":
                         if ptr.left == None:
                             ptr.left = tree_node()
@@ -212,14 +200,11 @@ if args.decompress:
                             ptr.right = tree_node()
                         ptr = ptr.right
                 
-                # print(ptr)
                 ptr.data = symbol
 
-            # print("DONE HEADER")
             ptr = root
             def trav(ptr, v):
                 if ptr.data != None:
-                    # print(ptr.data, v)
                     return
                 trav(ptr.left, v + "0")
                 trav(ptr.right, v + "1")
@@ -227,12 +212,10 @@ if args.decompress:
             trav(root, "")
 
             while (by := binary_file.read(1)):
-                # print(by)
                 val = int.from_bytes(by)
                 for bit in range(8,0,-1):
                     # read each bit individually
                     rb = ((val >> (bit-1)) % 2) == 1
-                    # print(rb)
 
                     if rb:
                         # 1
@@ -243,6 +226,8 @@ if args.decompress:
                     if ptr.data != None:
                         out_file.write(ptr.data)
                         ptr = root
+
+
 
     print("[!] Finished Decompression!")
 
