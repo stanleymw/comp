@@ -156,7 +156,14 @@ if args.compress:
         total_bits = 0
         for char in count:
             total_bits += count[char] * len(canonical_symbols[char])
-        debug_notify(total_bits)
+        bits_used_in_final_byte = total_bits % 8
+        debug_notify(str(total_bits) + " predicted bytes used | amount of bits used in final byte: " + str(bits_used_in_final_byte))
+
+        # the number of bits actually used in final byte (to ensure correct decompression)
+        binary_file.write(bits_used_in_final_byte.to_bytes(length = 1))
+
+        
+
 
         # Write header to file
         
@@ -172,7 +179,6 @@ if args.compress:
         for symbol, code in canonical_symbols.items():
             # we know the symbol is a max size of symbol_size
             # the max number of bits that is used to represent the symbol has to be symbol size
-            print(symbol, code)
             binary_file.write(int.from_bytes(symbol).to_bytes(length=args.symbol_size)) 
             binary_file.write(len(code).to_bytes(length=args.symbol_size))
 
@@ -194,8 +200,10 @@ if args.compress:
                     # We finished building this byte, so lets write it to the file
                     binary_file.write(current_byte.value.to_bytes())
                     current_byte = writeable_byte()
+        if current_byte.remaining_digits < 8:
+            binary_file.write(current_byte.value.to_bytes())
 
-        binary_file.write(current_byte.value.to_bytes())
+        debug_notify("Real number of bits used in final byte: " + str(8-current_byte.remaining_digits))
     
     debug_notify("Finished Compression")
     debug_notify("Predicted bits written: " + str(total_bits) +  " | Real bits written " + str(total_bits_real))
@@ -209,8 +217,11 @@ if args.decompress:
             
             symbol_size = int.from_bytes(binary_file.read(1))
             debug_notify("Detected symbol size: " + str(symbol_size))
-            num_symbols = int.from_bytes(binary_file.read(symbol_size))
+
+            num_symbols = int.from_bytes(binary_file.read(2**symbol_size))
             debug_notify("Detected number of symbols: " + str(num_symbols))
+
+            bits_used_in_final_byte = int.from_bytes(binary_file.read(1))
 
             # first read the header
             reconstructed = {}
@@ -221,7 +232,7 @@ if args.decompress:
             #     if val != 0:
             #         reconstructed[i.to_bytes()] = val
             for i in range(num_symbols):
-                sym = binary_file.read(symbol_size).lstrip(bytes(1))
+                sym = binary_file.read(symbol_size)
                 sym_code_len = int.from_bytes(binary_file.read(symbol_size))
                 reconstructed[sym] = sym_code_len
 
@@ -271,8 +282,14 @@ if args.decompress:
 
             trav(root, "")
 
+            prev = None
+            first = True
             while (by := binary_file.read(1)):
-                val = int.from_bytes(by)
+                if first: 
+                    prev = by
+                    first = False
+                    continue
+                val = int.from_bytes(prev)
                 for bit in range(8,0,-1):
                     # read each bit individually
                     rb = ((val >> (bit-1)) % 2) == 1
@@ -286,6 +303,28 @@ if args.decompress:
                     if ptr.data != None:
                         out_file.write(ptr.data)
                         ptr = root
+                prev = by
+        
+
+            if bits_used_in_final_byte == 0:
+                bits_used_in_final_byte = 8
+            # this is our final byte (sort of a hacky way to do it, but it works)
+            val = int.from_bytes(prev)
+            for bit in range(8, 8 - bits_used_in_final_byte, -1):
+                # read each bit individually
+                rb = ((val >> (bit-1)) % 2) == 1
+
+                if rb:
+                    # 1
+                    ptr = ptr.right
+                else:
+                    ptr = ptr.left
+
+                if ptr.data != None:
+                    out_file.write(ptr.data)
+                    ptr = root
+        
+
 
 
 
